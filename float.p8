@@ -1,221 +1,211 @@
 pico-8 cartridge // http://www.pico-8.com
 version 16
 __lua__
--- float
--- by alex recker
+X_MAX = 115
+X_MIN = 5
+Y_MAX = 128
 
-minx = 5
-maxx = 115
+function mk_player()
+   local o = {}
 
-function debug(str)
-	print(str, 5, 5, 0)
+   o.dead = false
+   o.hits_left = 3
+   o.img = 0
+   o.img_flip = false
+   o.pos_x = 60
+   o.pos_x_max = X_MAX
+   o.pos_x_min = X_MIN
+   o.pos_y = 40
+   o.step_dir = -1
+   o.step_num = 0
+
+   function o:draw_lives()
+      local str = ""
+      for i=1, self.hits_left do
+	 str = str.."♥"
+      end
+      print(str, 5, 5, 8)
+   end
+
+   function o:draw_player()
+      spr(self.img, self.pos_x, self.pos_y, 1, 1, self.img_flip)
+   end
+
+   function o:draw()
+      self:draw_lives()
+      self:draw_player()
+   end
+
+   function o:move()
+      local l, r = btn(0), btn(1)
+      self.img_flip = l
+      if l or r then self.img = 1 else self.img = 0 end
+
+      if l and self.pos_x > self.pos_x_min then
+	 self.pos_x -= 2
+      elseif r and self.pos_x < self.pos_x_max then
+	 self.pos_x += 2
+      end
+   end
+
+   function o:step()
+      if self.step_num <= 10 then
+	 self.step_num += 1
+      else
+	 self.step_num = 0
+	 self.step_dir *= -1
+      end
+   end
+
+   function o:sway()
+      if self.step_num == 0 then self.pos_x += self.step_dir end
+   end
+
+   function o:fall()
+      if self.pos_y < Y_MAX then
+	 self.pos_y += 10
+      end
+   end
+
+   function o:update()
+      if not self.dead then
+	 self:step()
+	 self:move()
+	 self:sway()
+	 self:die()
+      else
+	 self:fall()
+      end
+   end
+
+   function o:hit()
+      if not self.dead then self.hits_left -= 1 end
+   end
+
+   function o:die()
+      if self.hits_left == 0 then
+	 self.img = 5
+	 self.dead = true
+      end
+   end
+
+   return o
 end
 
-function mkplayer()
-	local o = {}
+function mk_cloud()
+   local o = {}
 
-	o.step = 0
-	o.stleft = -1
-	o.img = 0
-	o.imgflip = false
-	o.x = 60
-	o.y = 40
-	o.hits_left = 3
-	o.dead = false
-	o.gone = false
-	
-	function o:draw_lives()
-		local str = ""
-		for i=1, self.hits_left do
-			str = str.."♥"
-		end
-		print(str, 5, 5, 8)
-	end
-	
-	function o:draw()
-		spr(self.img, self.x, self.y, 1, 1, self.imgflip)
-		self:draw_lives()
-		--debug(self.hits_left)		
-	end
+   o.img = 2
+   o.pos_x = flr(rnd(X_MAX)) + X_MIN
+   o.pos_y = 130
 
-	function o:sway()
-		if self.dead then return end
-		if self.step <= 10 then
-			self.step += 1
-		else
-			self.step = 0
-			self.stleft *= -1
-			self.x += self.stleft
-		end
-	end
-	
-	function o:move()
-		if self.dead then return end
-		local l = btn(0)
-		local r = btn(1)
-		
-		if (l or r) then
-			self.img = 1
-			self.imgflip = l
-		else
-			self.img = 0
-		end
-		
-		if (l and self.x > minx) then
-			self.x -= 2
-		elseif (r and self.x < maxx) then
-			self.x += 2
-		end
-	end
-	
-	function o:hit()
-		if self.dead then return end
-		self.hits_left -= 1
-		sfx(0)
-	end
-	
-	function o:die()
-		if self.gone then return end
-		if not self.dead then
-			self.dead = self.hits_left == 0
-		else
-			self.img = 5
-			self.y += 10	
-			self.gone = self.y >= 128
-		end
-	end
-	
-	function o:update()
-		o:sway()
-		o:move()
-		o:die()
-	end
-	
-	return o
+   function o:draw()
+      spr(self.img, self.pos_x, self.pos_y)
+   end
+
+   function o:update()
+      self.pos_y -= 1
+   end
+
+   return o
 end
 
-function mkcloudgen()
-	local o = {}
-	
-	o.img = 2
-	o.clouds = {}
+function mk_kite()
+   local o = {}
 
-	function o:maybe_mkcloud()
-		if flr(rnd(30)) == 0 then
-			local c = {}
-			c.y = 130
-			c.x = flr(rnd(maxx)) + minx
-			add(self.clouds, c)
-		end
-	end
-	
-	function o:rmclouds()
-		for cloud in all(self.clouds) do
-			if cloud.y < 0 then
-				del(self.clouds, cloud)
-			end
-		end
-	end
-	
-	function o:update()
-		o:maybe_mkcloud()
-		foreach(self.clouds, function(c) c.y -= 1 end)
-		o:rmclouds()
-	end
-	
-	function o:draw()
-		foreach(o.clouds, function(c) spr(self.img, c.x, c.y) end)
-	end
-	
-	return o
+   o.destroy = false
+   o.img = 3
+   o.pos_x = flr(rnd(X_MAX)) + X_MIN
+   o.pos_y = 130
+   o.step_dir = -1
+   o.step_num = 0
+
+   function o:draw()
+      spr(self.img, self.pos_x, self.pos_y)
+   end
+
+   function o:step()
+      if self.step_num <= 10 then
+	 self.step_num += 1
+      else
+	 self.step_num = 0
+	 self.step_dir *= -1
+      end
+   end
+
+   function o:sway()
+      if self.step_dir == -1 then self.img = 3 else self.img = 4 end
+   end
+
+   function o:move()
+      self.pos_y -= 1
+   end
+
+   function o:hit()
+      if objects.player.dead then return end
+      local p_cx = flr(objects.player.pos_x / 8)
+      local p_cy = flr(objects.player.pos_y / 8)
+      local cx = flr(self.pos_x / 8)
+      local cy = flr(self.pos_y / 8)
+      if cx == p_cx and cy == p_cy then
+	 objects.player:hit()
+	 self.destroy = true
+      end
+   end
+
+   function o:update()
+      self:step()
+      self:sway()
+      self:move()
+      self:hit()
+   end
+
+   return o
 end
 
-function mkkitegen(player)
-	local o = {}
+function mk_generator(freq, mk_func)
+   local o = {}
 
-	o.kites = {}
-	o.step = 0
-	o.img = 3
-	o.player = player
+   o.objects = {}
 
-	function o:maybe_mkkite()
-		if flr(rnd(100)) == 0 then
-			local k = {}
-			k.y = 130
-			k.x = flr(rnd(maxx)) + minx
-			add(self.kites, k)
-		end
-	end
-	
-	function o:rmkites()
-		for kite in all(self.kites) do
-			if kite.y < 0 then
-				del(self.kites, kite)
-			end
-		end
-	end
-	
-	function o:sway()
-		if self.step == 10 then
-			self.step = 0
-			if self.img == 3 then self.img = 4 else self.img = 3 end
-		else
-			self.step += 1
-		end
-	end
-	
-	function o:hit()
-		local p_cx = flr(self.player.x / 8)
-		local p_cy = flr(self.player.y / 8)
-		for kite in all(self.kites) do
-			local cx = flr(kite.x / 8)
-			local cy = flr(kite.y / 8)
-			if cx == p_cx and cy == p_cy then
-				self.player:hit()
-				del(self.kites, kite)
-			end
-		end
-	end
-	
-	function o:update()
-		o:maybe_mkkite()
-		o:sway()
-		o:hit()
-		foreach(self.kites, function(c) c.y -= 1 end)
-		o:rmkites()
-	end
-	
-	function o:draw()
-		foreach(o.kites, function(c) spr(self.img, c.x, c.y) end)
-	end
-	
-	return o
+   function o:draw()
+      for obj in all(self.objects) do
+	 obj:draw()
+      end
+   end
+
+   function o:update()
+      if flr(rnd(freq)) == 0 then add(o.objects, mk_func()) end
+      for obj in all(self.objects) do
+	 if obj.destroy or obj.pos_y < 0 then
+	    del(self.objects, obj)
+	 else
+	    obj:update()
+	 end
+      end
+   end
+
+   return o
 end
-
-objects = {}
-player = {}
-kitegen = {}
-cloudgen = {}
 
 function _init()
-	player = mkplayer()
-	kitegen = mkkitegen(player)
-	cloudgen = mkcloudgen()
-	add(objects, cloudgen)
-	add(objects, kitegen)
-	add(objects, player)
+   objects = {}
+   objects.player = mk_player()
+   objects.cloud_generator = mk_generator(30, mk_cloud)
+   objects.kite_generator = mk_generator(50, mk_kite)
 end
 
 function _update()
-	foreach(objects, function(o) o:update() end)
+   for key, obj in pairs(objects) do
+      obj:update()
+   end
 end
 
 function _draw()
-	cls(12)
-	foreach(objects, function(o) o:draw() end)
-	if player.gone then
-		print("game over", 45, 60, 1)
-	end
+   cls(12)
+   for key, obj in pairs(objects) do
+      obj:draw()
+   end
 end
 __gfx__
 99999999999999990000000000008889000088890000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
